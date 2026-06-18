@@ -1,0 +1,15 @@
+server:
+  port: 8081
+
+mysql:
+  host: 127.0.0.1
+  port: 3307
+  database: hm-dianping
+  username: root
+  password: 123456
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: 123456
+  database: 1
