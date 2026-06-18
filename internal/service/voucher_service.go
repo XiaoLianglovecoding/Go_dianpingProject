@@ -11,30 +11,37 @@ import (
 )
 
 type VoucherService interface {
+	// AddVoucher 新增普通优惠券。
 	AddVoucher(ctx context.Context, voucher model.Voucher) result.Result
+	// AddSeckillVoucher 新增秒杀券。
 	AddSeckillVoucher(ctx context.Context, voucher model.Voucher) result.Result
+	// QueryVoucherOfShop 查询某店铺的优惠券列表。
 	QueryVoucherOfShop(ctx context.Context, shopID int64) result.Result
 }
 
 type voucherService struct {
-	voucherRepo repository.VoucherRepository
-	redisClient *redis.Client
+	voucherRepo repository.VoucherRepository // voucherRepo 负责优惠券表操作。
+	redisClient *redis.Client                // redisClient 后面用于秒杀库存。
 }
 
+// NewVoucherService 创建优惠券 Service。
 func NewVoucherService(voucherRepo repository.VoucherRepository, redisClient *redis.Client) VoucherService {
 	return &voucherService{voucherRepo: voucherRepo, redisClient: redisClient}
 }
 
+// AddVoucher 保存普通优惠券。
 func (s *voucherService) AddVoucher(ctx context.Context, voucher model.Voucher) result.Result {
 	// TODO: Save normal voucher to tb_voucher.
 	return result.Fail("TODO: add voucher")
 }
 
+// AddSeckillVoucher 保存秒杀券，并把库存预热到 Redis。
 func (s *voucherService) AddSeckillVoucher(ctx context.Context, voucher model.Voucher) result.Result {
 	// TODO: Save voucher and seckill stock/time, then preload seckill:stock:{id} in Redis.
 	return result.Fail("TODO: add seckill voucher")
 }
 
+// QueryVoucherOfShop 查询店铺详情页展示的优惠券。
 func (s *voucherService) QueryVoucherOfShop(ctx context.Context, shopID int64) result.Result {
 	// TODO: Query vouchers for shop detail page.
 	return result.Fail("TODO: query voucher of shop")
