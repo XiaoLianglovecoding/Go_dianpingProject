@@ -37,8 +37,14 @@ func NewShopService(shopRepo repository.ShopRepository, redisClient *redis.Clien
 //
 // 后面会重点学习 Redis 缓存穿透、缓存击穿、逻辑过期等内容。
 func (s *shopService) QueryByID(ctx context.Context, id int64) result.Result {
-	// TODO: Query shop with Redis cache pass-through or logical expiration.
-	return result.Fail("TODO: query shop by id")
+	if id <= 0 {
+		return result.Fail("invalid shop id")
+	}
+	shop, err := s.shopRepo.FindShopByID(ctx, id)
+	if err != nil {
+		return result.Fail("query shop failed")
+	}
+	return result.OKWithData(shop)
 }
 
 // SaveShop 新增店铺，保存成功后返回店铺 id。
@@ -57,12 +63,21 @@ func (s *shopService) UpdateShop(ctx context.Context, shop model.Shop) result.Re
 
 // QueryByType 根据店铺分类分页查询。
 func (s *shopService) QueryByType(ctx context.Context, typeID int64, current int) result.Result {
-	// TODO: Query shops by type with pagination; later support GEO query if x/y are provided.
-	return result.Fail("TODO: query shop by type")
+	if typeID < 0 {
+		return result.Fail("invalid typeID")
+	}
+	shops, err := s.shopRepo.FindShopsByType(ctx, typeID, current)
+	if err != nil {
+		return result.Fail("quey shop by type failed")
+	}
+	return result.OKWithData(shops)
 }
 
 // QueryByName 根据店铺名称搜索。
 func (s *shopService) QueryByName(ctx context.Context, name string, current int) result.Result {
-	// TODO: Query shops by name keyword with pagination.
-	return result.Fail("TODO: query shop by name")
+	shops, err := s.shopRepo.FindShopsByName(ctx, name, current)
+	if err != nil {
+		return result.Fail("query shop by name failed")
+	}
+	return result.OKWithData(shops)
 }

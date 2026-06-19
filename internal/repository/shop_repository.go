@@ -33,20 +33,60 @@ func NewShopRepository(db *gorm.DB) ShopRepository {
 
 // FindShopByID 后面会查询 tb_shop，并配合 Redis 做缓存。
 func (r *shopRepository) FindShopByID(ctx context.Context, id int64) (*model.Shop, error) {
-	// TODO: Query tb_shop by id.
-	return nil, nil
+	var shop model.Shop
+
+	err := r.db.WithContext(ctx).
+		Where("id=?", id).
+		First(&shop).Error
+	if err != nil {
+		return nil, err
+	}
+	return &shop, nil
 }
 
 // FindShopsByType 后面用于点击首页分类后的店铺列表页。
 func (r *shopRepository) FindShopsByType(ctx context.Context, typeID int64, current int) ([]model.Shop, error) {
 	// TODO: Query tb_shop by type_id with pagination.
-	return nil, nil
+	var shops []model.Shop
+	const pageSize = 5
+	if current < 1 {
+		current = 1
+	}
+
+	offset := (current - 1) * pageSize
+	err := r.db.WithContext(ctx).
+		Where("type_id= ?", typeID).
+		Offset(offset).
+		Limit(pageSize).
+		Find(&shops).Error
+	if err != nil {
+		return nil, err
+	}
+	return shops, nil
 }
 
 // FindShopsByName 后面用于顶部搜索框搜索店铺。
 func (r *shopRepository) FindShopsByName(ctx context.Context, name string, current int) ([]model.Shop, error) {
 	// TODO: Query tb_shop by name keyword with pagination.
-	return nil, nil
+	var shops []model.Shop
+	const pageSize = 10
+	if current < 1 {
+		current = 1
+	}
+	offset := (current - 1) * pageSize
+	query := r.db.WithContext(ctx).Model(&model.Shop{})
+
+	if name != "" {
+		query = query.Where("name LIKE ?", "%"+name+"%")
+	}
+	err := query.
+		Offset(offset).
+		Limit(pageSize).
+		Find(&shops).Error
+	if err != nil {
+		return nil, err
+	}
+	return shops, nil
 }
 
 // SaveShop 后面用于后台新增店铺。
