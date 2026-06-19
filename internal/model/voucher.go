@@ -16,6 +16,10 @@ type Voucher struct {
 	Stock       int        `json:"stock,omitempty" gorm:"-"`               // 秒杀库存来自 tb_seckill_voucher，不在 tb_voucher 表里。
 	BeginTime   *time.Time `json:"beginTime,omitempty" gorm:"-"`           // 秒杀开始时间，查询时手动补充。
 	EndTime     *time.Time `json:"endTime,omitempty" gorm:"-"`             // 秒杀结束时间，查询时手动补充。
+
+	// 👇 【新增这一行】告诉 GORM 这两张表是一对一关系，方便我们用 Preload 查数据
+	// json:"-" 的作用是：返回给前端时隐藏这个嵌套的结构，防止前端报错。
+	SeckillVoucher *SeckillVoucher `json:"-" gorm:"foreignKey:VoucherID;references:ID"`
 	TimeFields
 }
 

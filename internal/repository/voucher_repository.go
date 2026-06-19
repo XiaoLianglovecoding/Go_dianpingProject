@@ -43,8 +43,15 @@ func (r *voucherRepository) SaveSeckillVoucher(ctx context.Context, voucher *mod
 
 // FindVouchersByShopID 后面用于店铺详情页展示优惠券列表。
 func (r *voucherRepository) FindVouchersByShopID(ctx context.Context, shopID int64) ([]model.Voucher, error) {
-	// TODO: Query vouchers by shop_id and join seckill fields when needed.
-	return nil, nil
+	var vouchers []model.Voucher
+	err := r.db.WithContext(ctx).
+		Preload("SeckillVoucher").
+		Where("shop_id=?", shopID).
+		Find(&vouchers).Error
+	if err != nil {
+		return nil, err
+	}
+	return vouchers, nil
 }
 
 // FindSeckillVoucherByID 后面用于秒杀下单前检查库存和时间。

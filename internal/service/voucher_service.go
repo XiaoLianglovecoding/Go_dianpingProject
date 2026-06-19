@@ -43,6 +43,19 @@ func (s *voucherService) AddSeckillVoucher(ctx context.Context, voucher model.Vo
 
 // QueryVoucherOfShop 查询店铺详情页展示的优惠券。
 func (s *voucherService) QueryVoucherOfShop(ctx context.Context, shopID int64) result.Result {
-	// TODO: Query vouchers for shop detail page.
-	return result.Fail("TODO: query voucher of shop")
+	if shopID <= 0 {
+		return result.Fail("invalid shop id")
+	}
+	vouchers, err := s.voucherRepo.FindVouchersByShopID(ctx, shopID)
+	if err != nil {
+		return result.Fail("query voucher of shop failed")
+	}
+	for i := range vouchers {
+		if vouchers[i].SeckillVoucher != nil {
+			vouchers[i].Stock = vouchers[i].SeckillVoucher.Stock
+			vouchers[i].BeginTime = &vouchers[i].SeckillVoucher.BeginTime
+			vouchers[i].EndTime = &vouchers[i].SeckillVoucher.EndTime
+		}
+	}
+	return result.OKWithData(vouchers)
 }
