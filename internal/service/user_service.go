@@ -3,11 +3,14 @@ package service
 import (
 	"context"
 
+	"errors"
 	"hmdp-go/internal/dto"
+	"hmdp-go/internal/model"
 	"hmdp-go/internal/pkg/result"
 	"hmdp-go/internal/repository"
 
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 type UserService interface {
@@ -71,14 +74,49 @@ func (s *userService) Me(ctx context.Context) result.Result {
 
 // QueryUserByID 查询用户基础信息，返回时要转换成 UserDTO，避免泄露密码/手机号。
 func (s *userService) QueryUserByID(ctx context.Context, id int64) result.Result {
-	// TODO: Query user by id and convert to UserDTO.
-	return result.Fail("TODO: query user by id")
+	if id <= 0 {
+		return result.Fail("invalid user id")
+	}
+	user, err := s.userRepo.FindUserByID(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return result.Fail("user not found")
+	}
+	if err != nil {
+		return result.Fail("query user failed")
+	}
+	userDTO := dto.UserDTO{
+		ID:       user.ID,
+		NickName: user.NickName,
+		Icon:     user.Icon,
+	}
+	return result.OKWithData(userDTO)
 }
 
 // QueryUserInfo 查询用户扩展资料。
 func (s *userService) QueryUserInfo(ctx context.Context, id int64) result.Result {
-	// TODO: Query user info by user id.
-	return result.Fail("TODO: query user info")
+	if id <= 0 {
+		return result.Fail("invalid user id")
+	}
+	info, err := s.userRepo.FindUserInfoByID(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return result.OKWithData(&model.UserInfo{})
+	}
+	if err != nil {
+		return result.Fail("query userinfo failed")
+	}
+	infoDTO := &dto.UserInfoDTO{
+		City:      info.City,
+		Introduce: info.Introduce,
+		Fans:      info.Fans,
+		Followee:  info.Followee,
+		Gender:    info.Gender,
+		Credits:   info.Credits,
+		Level:     info.Level,
+	}
+	if info.Birthday != nil {
+		infoDTO.Birthday = info.Birthday.Format("2006-01-02")
+	}
+	return result.OKWithData(infoDTO)
 }
 
 // Sign 今日签到。

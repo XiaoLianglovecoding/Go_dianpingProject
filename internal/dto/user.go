@@ -17,3 +17,15 @@ type UserDTO struct {
 	NickName string `json:"nickName"`
 	Icon     string `json:"icon"`
 }
+
+// UserInfoDTO 返回给前端的用户扩展信息
+type UserInfoDTO struct {
+	City      string `json:"city"`
+	Introduce string `json:"introduce"`
+	Fans      int    `json:"fans"`
+	Followee  int    `json:"followee"`
+	Gender    int    `json:"gender"`
+	Birthday  string `json:"birthday"` // 建议日期转成格式化字符串给前端，比如 "1999-01-01"
+	Credits   int    `json:"credits"`
+	Level     int    `json:"level"`
+}

@@ -52,8 +52,14 @@ func (r *userRepository) FindUserByID(ctx context.Context, id int64) (*model.Use
 
 // FindUserInfoByID 查询用户扩展资料表 tb_user_info。
 func (r *userRepository) FindUserInfoByID(ctx context.Context, id int64) (*model.UserInfo, error) {
-	// TODO: Query tb_user_info by user_id with GORM.
-	return nil, nil
+	var userinfo model.UserInfo
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", id).
+		First(&userinfo).Error
+	if err != nil {
+		return nil, err
+	}
+	return &userinfo, nil
 }
 
 // CreateUser 保存新用户。
