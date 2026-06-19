@@ -39,8 +39,13 @@ func (r *blogRepository) SaveBlog(ctx context.Context, blog *model.Blog) error {
 
 // FindBlogByID 负责按主键查询博客详情。
 func (r *blogRepository) FindBlogByID(ctx context.Context, id int64) (*model.Blog, error) {
-	// TODO: Query tb_blog by id.
-	return nil, nil
+	var blog model.Blog
+	err := r.db.WithContext(ctx).
+		First(&blog, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &blog, nil
 }
 
 // FindBlogsByHot 查询热门博客。

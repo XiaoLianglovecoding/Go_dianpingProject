@@ -7,7 +7,10 @@ import (
 	"hmdp-go/internal/pkg/result"
 	"hmdp-go/internal/repository"
 
+	"errors"
+
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 // BlogService 定义“博客/探店笔记”相关业务能力。
@@ -57,8 +60,26 @@ func (s *blogService) SaveBlog(ctx context.Context, blog model.Blog) result.Resu
 //
 // 后面要补充作者信息、当前用户是否点赞等字段。
 func (s *blogService) QueryByID(ctx context.Context, id int64) result.Result {
-	// TODO: Query blog by id, attach author info, and mark whether current user liked it.
-	return result.Fail("TODO: query blog by id")
+	if id <= 0 {
+		return result.Fail("invalid blog id")
+	}
+	// 2. 查博客表
+	blog, err := s.blogRepo.FindBlogByID(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return result.Fail("blog not found")
+	}
+	if err != nil {
+		return result.Fail("query blog failed")
+	}
+
+	// 3. 查用户表 (使用 blog.UserID，并且传入 ctx)
+	user, err := s.userRepo.FindUserByID(ctx, blog.UserID)
+	if err == nil {
+		blog.Name = user.NickName
+		blog.Icon = user.Icon
+	}
+	blog.IsLike = false
+	return result.OKWithData(blog)
 }
 
 // LikeBlog 点赞/取消点赞。

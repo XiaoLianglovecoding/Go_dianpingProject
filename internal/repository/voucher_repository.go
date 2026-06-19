@@ -46,7 +46,7 @@ func (r *voucherRepository) FindVouchersByShopID(ctx context.Context, shopID int
 	var vouchers []model.Voucher
 	err := r.db.WithContext(ctx).
 		Preload("SeckillVoucher").
-		Where("shop_id=?", shopID).
+		Where("shop_id = ?", shopID).
 		Find(&vouchers).Error
 	if err != nil {
 		return nil, err
