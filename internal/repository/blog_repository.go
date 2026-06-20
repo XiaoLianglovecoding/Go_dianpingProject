@@ -81,8 +81,21 @@ func (r *blogRepository) FindBlogsByHot(ctx context.Context, current int) ([]mod
 
 // FindBlogsByUserID 后面用于个人主页，查询某个用户的博客列表。
 func (r *blogRepository) FindBlogsByUserID(ctx context.Context, userID int64, current int) ([]model.Blog, error) {
-	// TODO: Query blogs by user_id.
-	return nil, nil
+	var blogs []model.Blog
+	if current < 1 {
+		current = 1
+	}
+	const pageSize = 10
+	offset := (current - 1) * pageSize
+	err := r.db.WithContext(ctx).Order("create_time DESC").
+		Where("user_id = ?", userID).
+		Offset(offset).
+		Limit(pageSize).
+		Find(&blogs).Error
+	if err != nil {
+		return nil, err
+	}
+	return blogs, nil
 }
 
 // UpdateBlogLiked 后面用于点赞/取消点赞时更新 tb_blog.liked。

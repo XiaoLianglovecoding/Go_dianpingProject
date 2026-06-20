@@ -102,7 +102,7 @@ func (s *userService) QueryUserInfo(ctx context.Context, id int64) result.Result
 		return result.OKWithData(&model.UserInfo{})
 	}
 	if err != nil {
-		return result.Fail("query userinfo failed")
+		return result.Fail("query user info failed")
 	}
 	infoDTO := &dto.UserInfoDTO{
 		City:      info.City,

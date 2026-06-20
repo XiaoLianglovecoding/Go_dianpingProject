@@ -135,6 +135,26 @@ func (s *blogService) QueryBlogLikes(ctx context.Context, id int64) result.Resul
 
 // QueryBlogByUserID 查询指定用户发布的博客列表。
 func (s *blogService) QueryBlogByUserID(ctx context.Context, userID int64, current int) result.Result {
-	// TODO: Query blogs by target user id.
-	return result.Fail("TODO: query blog by user")
+	if userID <= 0 {
+		return result.Fail("invalid userID")
+	}
+	blogs, err := s.blogRepo.FindBlogsByUserID(ctx, userID, current)
+	if err != nil {
+		return result.Fail("query userblogs failed")
+	}
+	if len(blogs) == 0 {
+		return result.OKWithData(make([]model.Blog, 0))
+	}
+
+	user, err := s.userRepo.FindUserByID(ctx, userID)
+	for i := range blogs {
+		if err == nil {
+			// Name/Icon 是 Blog 结构体里的 gorm:"-" 字段，不存在数据库中，只用于返回给前端。
+			blogs[i].Name = user.NickName
+			blogs[i].Icon = user.Icon
+		}
+		// 还没实现登录和点赞状态，所以先统一返回 false。
+		blogs[i].IsLike = false
+	}
+	return result.OKWithData(blogs)
 }
