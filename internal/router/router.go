@@ -35,24 +35,31 @@ func NewRouter(handlers *handler.Handlers, redisClient *redis.Client) *gin.Engin
 
 // registerUserRoutes 注册 /user 开头的用户接口。
 func registerUserRoutes(r *gin.Engine, h *handler.UserHandler) {
-	group := r.Group("/user")
 	// ==========================================
-	// 【第一部分：公开路由】(不受 LoginInterceptor 拦截)
+	// 【公开 user 路由组】(不受 LoginInterceptor 拦截)
 	// ==========================================
-	group.POST("/code", h.SendCode)
-	group.POST("/login", h.Login)
-	// 具体的静态路由优先
-	group.GET("/info/:id", h.QueryUserInfo)
-	// 泛化参数路由垫底
-	group.GET("/:id", h.QueryUserByID)
-
-	// 【受保护路由】挂载登录拦截器 (保安)
-	group.Use(middleware.LoginInterceptor())
+	publicGroup := r.Group("/user")
 	{
-		group.GET("/me", h.Me)
-		group.POST("/logout", h.Logout)
-		group.POST("/sign", h.Sign)
-		group.GET("/sign/count", h.SignCount)
+		publicGroup.POST("/code", h.SendCode)
+		publicGroup.POST("/login", h.Login)
+
+		// 具体的静态路由优先
+		publicGroup.GET("/info/:id", h.QueryUserInfo)
+		// 泛化参数路由垫底
+		publicGroup.GET("/:id", h.QueryUserByID)
+	}
+
+	// ==========================================
+	// 【登录 user 路由组】(必须带有 Token 才能访问)
+	// ==========================================
+	protectedGroup := r.Group("/user")
+	// 挂载登录拦截器 (保安)
+	protectedGroup.Use(middleware.LoginInterceptor())
+	{
+		protectedGroup.GET("/me", h.Me)
+		protectedGroup.POST("/logout", h.Logout)
+		protectedGroup.POST("/sign", h.Sign)
+		protectedGroup.GET("/sign/count", h.SignCount)
 	}
 }
 

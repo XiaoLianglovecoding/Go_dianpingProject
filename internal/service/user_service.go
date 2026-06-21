@@ -25,7 +25,7 @@ type UserService interface {
 	// Login 使用手机号和验证码登录，成功后返回 token。
 	Login(ctx context.Context, form dto.LoginFormDTO) result.Result
 	// Logout 退出登录。
-	Logout(ctx context.Context) result.Result
+	Logout(ctx context.Context, token string) result.Result
 	// QueryUserByID 根据 id 查询用户基础信息。
 	QueryUserByID(ctx context.Context, id int64) result.Result
 	// QueryUserInfo 查询用户扩展资料。
@@ -151,9 +151,25 @@ func (s *userService) Login(ctx context.Context, form dto.LoginFormDTO) result.R
 }
 
 // Logout 负责退出登录。
-func (s *userService) Logout(ctx context.Context) result.Result {
-	// TODO: Delete login token from Redis.
-	return result.Fail("TODO: user logout")
+func (s *userService) Logout(ctx context.Context, token string) result.Result {
+	if token == "" {
+		return result.OK()
+	}
+	tokenkey := constants.LoginUserKey + token
+	deletecount, err := s.redisClient.Del(ctx, tokenkey).Result()
+	if err != nil {
+		log.Printf(" Redis 删除 Token 系统异常 %s: %v", tokenkey, err)
+		return result.Fail("删除token失败,Redis 报错")
+	}
+
+	// 5. 验证是否是重复退出（可选：纯粹为了日志观测，不影响返回给前端的结果）
+	if deletecount == 0 {
+		// key 本来就不存在（可能已经过期自然死亡，或者用户手抖狂点退出按钮）
+		// 按照我们的幂等性原则，这也算作退出成功！
+		log.Printf(" Token 已失效或不存在，无需重复删除: %s", tokenkey)
+	}
+
+	return result.OK()
 }
 
 // QueryUserByID 查询用户基础信息，返回时要转换成 UserDTO，避免泄露密码/手机号。

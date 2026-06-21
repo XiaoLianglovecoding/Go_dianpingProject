@@ -40,7 +40,9 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 // Logout 处理 POST /user/logout。
 func (h *UserHandler) Logout(c *gin.Context) {
-	writeResult(c, h.userService.Logout(c.Request.Context()))
+	// 1. 从 HTTP 请求头中安全获取 token
+	token := c.GetHeader("authorization")
+	writeResult(c, h.userService.Logout(c.Request.Context(), token))
 }
 
 // Me 处理 GET /user/me，查询当前登录用户。
