@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"hmdp-go/internal/model"
 
@@ -99,7 +100,36 @@ func (r *blogRepository) FindBlogsByUserID(ctx context.Context, userID int64, cu
 }
 
 // UpdateBlogLiked 后面用于点赞/取消点赞时更新 tb_blog.liked。
-func (r *blogRepository) UpdateBlogLiked(ctx context.Context, id int64, delta int) error {
-	// TODO: Increase or decrease liked count atomically.
+// UpdateBlogLiked 更新博客点赞数。delta 传 1 代表增加，传 -1 代表减少。
+func (r *blogRepository) UpdateBlogLiked(ctx context.Context, blogId int64, delta int) error {
+	// 等价于 SQL: UPDATE tb_blog SET liked = liked + (delta) WHERE id = blogId;
+	// 1. 初始化基础查询条件
+	query := r.db.WithContext(ctx).
+		Model(&model.Blog{}).
+		Where("id = ?", blogId)
+
+	// 2. 终极防线：如果是取消点赞 (delta < 0)，强制要求 liked 必须大于 0 才能扣减
+	if delta < 0 {
+		query = query.Where("liked > 0")
+	}
+
+	// 3. 执行原子更新，并将结果暂存到 res 变量中
+	// 等价 SQL: UPDATE tb_blog SET liked = liked + (delta) WHERE id = ? [AND liked > 0];
+	// res 是一个 *gorm.DB 对象，里面包含 .Error 和 .RowsAffected
+	res := query.UpdateColumn("liked", gorm.Expr("liked + ?", delta))
+
+	// 4. 先判断有没有系统级的 SQL 错误（比如断网、语法错）
+	if res.Error != nil {
+		return res.Error
+	}
+
+	// 5. 核心防线：判断到底有没有真正更新到数据！
+	if res.RowsAffected == 0 {
+		// 结合我们的条件，RowsAffected 为 0 只有两种可能：
+		// a. 这篇 blogId 根本不存在！
+		// b. 想要取消点赞，但数据库里 liked 已经是 0 了！
+		// 无论哪种情况，都说明这条操作是无效的，人为抛出错误！
+		return errors.New("操作失败: 博客不存在或状态已变更")
+	}
 	return nil
 }

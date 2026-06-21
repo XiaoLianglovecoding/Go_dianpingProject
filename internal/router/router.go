@@ -81,15 +81,29 @@ func registerShopTypeRoutes(r *gin.Engine, h *handler.ShopTypeHandler) {
 
 // registerBlogRoutes 注册 /blog 开头的博客接口。
 func registerBlogRoutes(r *gin.Engine, h *handler.BlogHandler) {
-	group := r.Group("/blog")
-	group.POST("", h.SaveBlog)
-	group.PUT("/like/:id", h.LikeBlog)
-	group.GET("/of/me", h.QueryMyBlog)
-	group.GET("/hot", h.QueryHotBlog)
-	group.GET("/likes/:id", h.QueryBlogLikes)
-	group.GET("/of/user", h.QueryBlogByUserID)
-	group.GET("/of/follow", todoRoute("TODO: query blog of follow"))
-	group.GET("/:id", h.QueryByID)
+	// ==========================================
+	// 【公开 blog 路由组】(不受 LoginInterceptor 拦截)
+	// ==========================================
+	publicgroup := r.Group("/blog")
+	{
+		publicgroup.GET("/hot", h.QueryHotBlog)
+		publicgroup.GET("/likes/:id", h.QueryBlogLikes)
+		publicgroup.GET("/of/user", h.QueryBlogByUserID)
+		publicgroup.GET("/:id", h.QueryByID)
+	}
+
+	// ==========================================
+	// 【登录 blog 路由组】(必须带有 Token 才能访问)
+	// ==========================================
+	protectedGroup := r.Group("/blog")
+	// 挂载登录拦截器 (保安)
+	protectedGroup.Use(middleware.LoginInterceptor())
+	{
+		protectedGroup.GET("/of/me", h.QueryMyBlog)
+		protectedGroup.GET("/of/follow", todoRoute("TODO: query blog of follow"))
+		protectedGroup.POST("", h.SaveBlog)
+		protectedGroup.PUT("/like/:id", h.LikeBlog)
+	}
 }
 
 // registerFollowRoutes 注册 /follow 开头的关注接口。
