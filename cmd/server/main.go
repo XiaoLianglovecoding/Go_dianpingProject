@@ -45,7 +45,7 @@ func main() {
 	repos := repository.NewRepositories(db)
 	services := service.NewServices(repos, redisClient)
 	handlers := handler.NewHandlers(services)
-	engine := router.NewRouter(handlers)
+	engine := router.NewRouter(handlers, redisClient)
 
 	// 启动 HTTP 服务。前端 nginx 会把 /api 请求代理到这个端口。
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

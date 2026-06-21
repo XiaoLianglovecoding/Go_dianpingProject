@@ -3,7 +3,9 @@ package handler
 import (
 	"hmdp-go/internal/dto"
 	"hmdp-go/internal/pkg/result"
+	"hmdp-go/internal/pkg/userutils"
 	"hmdp-go/internal/service"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,8 +44,20 @@ func (h *UserHandler) Logout(c *gin.Context) {
 }
 
 // Me 处理 GET /user/me，查询当前登录用户。
+// 前端带 token 请求 /user/me
+// 后端根据 token 找到当前登录用户
+// 返回当前用户信息
 func (h *UserHandler) Me(c *gin.Context) {
-	writeResult(c, h.userService.Me(c.Request.Context()))
+	// 1. 获取当前用户
+	userDTO, err := userutils.GetUser(c)
+
+	// 2. 严谨的错误处理：如果拿不到人，直接打回 401报错并 return 中断请求
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, result.Fail(err.Error()))
+		return
+	}
+	// 3. 原路返回前端
+	c.JSON(http.StatusOK, result.OKWithData(userDTO))
 }
 
 // QueryUserByID 处理 GET /user/:id。

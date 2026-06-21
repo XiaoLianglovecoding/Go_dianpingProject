@@ -12,7 +12,7 @@ type Blog struct {
 	Comments int     `json:"comments" gorm:"column:comments"` // 评论数。
 	Name     string  `json:"name,omitempty" gorm:"-"`         // 作者昵称，不在 tb_blog 表里，查询后手动补充。
 	Icon     string  `json:"icon,omitempty" gorm:"-"`         // 作者头像，不在 tb_blog 表里，查询后手动补充。
-	IsLike   bool    `json:"isLike,omitempty" gorm:"-"`       // 当前登录用户是否点赞，不在 tb_blog 表里。
+	IsLike   bool    `json:"isLike" gorm:"-"`                 // 当前登录用户是否点赞，不在 tb_blog 表里。
 	Distance float64 `json:"distance,omitempty" gorm:"-"`     // 距离字段，后续做附近商户/博客时可能使用。
 	TimeFields
 }

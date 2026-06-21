@@ -31,8 +31,14 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 
 // FindUserByPhone 后面实现登录时会用：通过手机号查 tb_user。
 func (r *userRepository) FindUserByPhone(ctx context.Context, phone string) (*model.User, error) {
-	// TODO: Query tb_user by phone with GORM.
-	return nil, nil
+	var user model.User
+	err := r.db.WithContext(ctx).
+		Where("phone = ?", phone).
+		First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 // FindUserByID 根据主键 id 查询用户。
@@ -63,7 +69,14 @@ func (r *userRepository) FindUserInfoByID(ctx context.Context, id int64) (*model
 }
 
 // CreateUser 保存新用户。
+// 相当于：INSERT INTO `tb_user`
+// (`phone`, `nick_name`, `password`, `icon`, `create_time`, `update_time`)
+// VALUES
+// ('13800138000', 'user_550e8400', ”, ”, '2026-06-20 16:44:46', '2026-06-20 16:44:46');
 func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error {
-	// TODO: Insert a new user into tb_user.
+	err := r.db.WithContext(ctx).Create(user).Error
+	if err != nil {
+		return err
+	}
 	return nil
 }

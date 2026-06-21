@@ -9,16 +9,17 @@ import (
 	"hmdp-go/internal/pkg/result"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 // NewRouter 创建 Gin 路由引擎，并注册所有接口。
 //
 // 可以把这里理解成 Spring MVC 里所有 @RequestMapping 的集中登记处。
-func NewRouter(handlers *handler.Handlers) *gin.Engine {
+func NewRouter(handlers *handler.Handlers, redisClient *redis.Client) *gin.Engine {
 	// gin.Default() 自带日志和崩溃恢复中间件，适合开发阶段使用。
 	r := gin.Default()
 	// 全局挂载 token 刷新中间件；现在只是占位，不会拦截请求。
-	r.Use(middleware.RefreshTokenMiddleware())
+	r.Use(middleware.RefreshTokenMiddleware(redisClient))
 
 	registerUserRoutes(r, handlers.User)
 	registerShopRoutes(r, handlers.Shop)
@@ -35,15 +36,24 @@ func NewRouter(handlers *handler.Handlers) *gin.Engine {
 // registerUserRoutes 注册 /user 开头的用户接口。
 func registerUserRoutes(r *gin.Engine, h *handler.UserHandler) {
 	group := r.Group("/user")
+	// ==========================================
+	// 【第一部分：公开路由】(不受 LoginInterceptor 拦截)
+	// ==========================================
 	group.POST("/code", h.SendCode)
 	group.POST("/login", h.Login)
-	group.POST("/logout", h.Logout)
-	group.POST("/sign", h.Sign)
-
-	group.GET("/me", h.Me)
-	group.GET("/sign/count", h.SignCount)
+	// 具体的静态路由优先
 	group.GET("/info/:id", h.QueryUserInfo)
+	// 泛化参数路由垫底
 	group.GET("/:id", h.QueryUserByID)
+
+	// 【受保护路由】挂载登录拦截器 (保安)
+	group.Use(middleware.LoginInterceptor())
+	{
+		group.GET("/me", h.Me)
+		group.POST("/logout", h.Logout)
+		group.POST("/sign", h.Sign)
+		group.GET("/sign/count", h.SignCount)
+	}
 }
 
 // registerShopRoutes 注册 /shop 开头的店铺接口。

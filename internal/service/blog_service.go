@@ -146,13 +146,7 @@ func (s *blogService) QueryBlogByUserID(ctx context.Context, userID int64, curre
 		return result.OKWithData(make([]model.Blog, 0))
 	}
 
-	user, err := s.userRepo.FindUserByID(ctx, userID)
 	for i := range blogs {
-		if err == nil {
-			// Name/Icon 是 Blog 结构体里的 gorm:"-" 字段，不存在数据库中，只用于返回给前端。
-			blogs[i].Name = user.NickName
-			blogs[i].Icon = user.Icon
-		}
 		// 还没实现登录和点赞状态，所以先统一返回 false。
 		blogs[i].IsLike = false
 	}
