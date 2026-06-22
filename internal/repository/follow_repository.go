@@ -2,10 +2,12 @@ package repository
 
 import (
 	"context"
+	"log"
 
 	"hmdp-go/internal/model"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type FollowRepository interface {
@@ -31,19 +33,59 @@ func NewFollowRepository(db *gorm.DB) FollowRepository {
 
 // FindFollow 后面会查询 tb_follow 是否存在一条关注记录。
 func (r *followRepository) FindFollow(ctx context.Context, userID int64, followUserID int64) (*model.Follow, error) {
-	// TODO: Query tb_follow for a single follow relation.
-	return nil, nil
+	var follow model.Follow
+	//SELECT * FROM tb_follow WHERE user_id = ? AND follow_user_id = ? LIMIT 1;
+	res := r.db.WithContext(ctx).
+		Where("user_id = ? AND follow_user_id = ?", userID, followUserID).
+		Limit(1).
+		Find(&follow)
+
+	// 2. 拦截真正的数据库系统级错误（如断网、表不存在）
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	// 3. 核心逻辑：判断有没有查到数据
+	// 如果 RowsAffected 为 0，说明没查到记录，即【未关注】
+	if res.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound // 手动抛出标准错误，让 Service 层去处理
+	}
+	// 4. 如果走到了这里，说明查到了数据，即【已关注】
+	return &follow, nil
 }
 
-// SaveFollow 保存关注关系。
+// SaveFollow 保存关注关系（新增一条关注记录）。
+// 相当于 SQL: INSERT INTO tb_follow (user_id, follow_user_id, create_time) VALUES (?, ?, ?);
 func (r *followRepository) SaveFollow(ctx context.Context, follow *model.Follow) error {
-	// TODO: Insert follow relation.
-	return nil
+	// GORM 的精髓：直接传入结构体指针，它会自动解析字段并执行 INSERT
+	//  健壮性防范：防并发双击 (Insert Ignore)
+	// 使用 Clauses(clause.OnConflict{DoNothing: true})
+	// 相当于 SQL: INSERT IGNORE INTO tb_follow ...
+	// 如果用户狂点关注导致触发了联合唯一索引冲突，MySQL 会静默忽略，绝不抛出错误！
+	err := r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		Create(follow).Error
+	return err
 }
 
-// DeleteFollow 取消关注。
+// DeleteFollow 取消关注（硬删除这条关注记录）。
+// 相当于 SQL: DELETE FROM tb_follow WHERE user_id = ? AND follow_user_id = ?;
 func (r *followRepository) DeleteFollow(ctx context.Context, userID int64, followUserID int64) error {
-	// TODO: Delete follow relation.
+	// 注意：Delete() 里面必须传一个空的 &model.Follow{}，这样 GORM 才能知道去哪张表删数据
+	res := r.db.WithContext(ctx).
+		Where("user_id = ? AND follow_user_id = ?", userID, followUserID).
+		Delete(&model.Follow{})
+
+	if res.Error != nil {
+		return res.Error
+	}
+
+	// 健壮性防范：天然幂等校验
+	// 如果 RowsAffected 为 0，意味着在删除那一刻记录已经不存在了（比如前端连发了两次取关请求）。
+	// 在分布式系统中，这也算作一种“成功”，我们不返回 error，直接放行即可。
+	if res.RowsAffected == 0 {
+		// 这里可以留个口子，如果未来业务要求严格，可以打条 Warn 日志，但绝对不应该阻断流程。
+		log.Printf("记录已经不存在")
+	}
 	return nil
 }
 

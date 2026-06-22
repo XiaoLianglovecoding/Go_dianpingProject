@@ -109,9 +109,12 @@ func registerBlogRoutes(r *gin.Engine, h *handler.BlogHandler) {
 // registerFollowRoutes 注册 /follow 开头的关注接口。
 func registerFollowRoutes(r *gin.Engine, h *handler.FollowHandler) {
 	group := r.Group("/follow")
-	group.GET("/or/not/:id", h.IsFollow)
-	group.PUT("/:id/:isFollow", h.Follow)
-	group.GET("/common/:id", h.Common)
+	group.Use(middleware.LoginInterceptor())
+	{
+		group.GET("/or/not/:id", h.IsFollow)
+		group.PUT("/:id/:isFollow", h.Follow)
+		group.GET("/common/:id", h.Common)
+	}
 }
 
 // registerUploadRoutes 注册 /upload 开头的上传接口。
