@@ -32,11 +32,15 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 // FindUserByPhone 后面实现登录时会用：通过手机号查 tb_user。
 func (r *userRepository) FindUserByPhone(ctx context.Context, phone string) (*model.User, error) {
 	var user model.User
-	err := r.db.WithContext(ctx).
+	res := r.db.WithContext(ctx).
 		Where("phone = ?", phone).
-		First(&user).Error
-	if err != nil {
-		return nil, err
+		Limit(1).Find(&user) // 优化：使用 Find 替代 First，阻止 GORM 自动打印错误日志
+
+	if res.Error != nil {
+		return nil, res.Error // 真正的数据库异常（如断网）
+	}
+	if res.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound // 巧妙伪装：手动返回没查到，保持与 Service 层的兼容
 	}
 	return &user, nil
 }
@@ -46,12 +50,15 @@ func (r *userRepository) FindUserByPhone(ctx context.Context, phone string) (*mo
 // 这个方法现在已经被热门博客接口使用，用来给每篇博客补充作者昵称和头像。
 func (r *userRepository) FindUserByID(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
-	err := r.db.WithContext(ctx).
+	res := r.db.WithContext(ctx).
 		Where("id = ?", id).
-		First(&user).Error
+		Limit(1).Find(&user) // 同理优化
 
-	if err != nil {
-		return nil, err
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound
 	}
 	return &user, nil
 }
@@ -59,11 +66,15 @@ func (r *userRepository) FindUserByID(ctx context.Context, id int64) (*model.Use
 // FindUserInfoByID 查询用户扩展资料表 tb_user_info。
 func (r *userRepository) FindUserInfoByID(ctx context.Context, id int64) (*model.UserInfo, error) {
 	var userinfo model.UserInfo
-	err := r.db.WithContext(ctx).
+	res := r.db.WithContext(ctx).
 		Where("user_id = ?", id).
-		First(&userinfo).Error
-	if err != nil {
-		return nil, err
+		Limit(1).Find(&userinfo) // 同理优化
+
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound
 	}
 	return &userinfo, nil
 }

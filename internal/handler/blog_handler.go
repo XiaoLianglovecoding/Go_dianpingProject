@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"hmdp-go/internal/dto"
 	"hmdp-go/internal/model"
 	"hmdp-go/internal/pkg/result"
 	"hmdp-go/internal/pkg/userutils"
@@ -39,11 +38,9 @@ func (h *BlogHandler) QueryByID(c *gin.Context) {
 	if !ok {
 		return
 	}
-	// 【温柔提取】：不报错，查不到就是游客 (0)
-	var userID int64 = 0
-	if userObj, exists := c.Get("user"); exists {
-		userID = userObj.(dto.UserDTO).ID
-	}
+	// (观看者 viewerID，没登录就是 0)安全提取与兜底，彻底消除 Panic 隐患
+	userID := userutils.GetUserID(c)
+
 	writeResult(c, h.blogService.QueryByID(c.Request.Context(), id, userID))
 }
 
@@ -68,18 +65,25 @@ func (h *BlogHandler) LikeBlog(c *gin.Context) {
 // QueryMyBlog 处理 GET /blog/of/me，查询我的博客。
 func (h *BlogHandler) QueryMyBlog(c *gin.Context) {
 	current := parseIntQuery(c, "current", 1)
-	writeResult(c, h.blogService.QueryMyBlog(c.Request.Context(), current))
+
+	// 【强登录接口】：使用 GetUser 严格校验，失败直接返回 401 阻断
+	userDTO, err := userutils.GetUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, result.Fail(err.Error()))
+		return
+	}
+
+	// 看自己的主页，作者和观看者都是自己
+	userID := userDTO.ID
+	writeResult(c, h.blogService.QueryBlogByUserID(c.Request.Context(), userID, current, userID))
 }
 
 // QueryHotBlog 处理 GET /blog/hot?current=1，首页热门博客列表。
 func (h *BlogHandler) QueryHotBlog(c *gin.Context) {
 	current := parseIntQuery(c, "current", 1)
 
-	// 【温柔提取】：不报错，查不到就是游客 (0)
-	var userID int64 = 0
-	if userObj, exists := c.Get("user"); exists {
-		userID = userObj.(dto.UserDTO).ID
-	}
+	// 安全提取游客 ID(观看者 viewerID，没登录就是 0)
+	userID := userutils.GetUserID(c)
 	writeResult(c, h.blogService.QueryHotBlog(c.Request.Context(), current, userID))
 }
 
@@ -98,10 +102,9 @@ func (h *BlogHandler) QueryBlogByUserID(c *gin.Context) {
 	authorID := int64(parseIntQuery(c, "id", 0))
 	current := parseIntQuery(c, "current", 1)
 
-	// 2. 【温柔提取】当前登录用户 ID (观看者 viewerID，没登录就是 0)
-	var viewerID int64 = 0
-	if userObj, exists := c.Get("user"); exists {
-		viewerID = userObj.(dto.UserDTO).ID
-	}
+	// 2. 温柔提取当前登录用户 ID (观看者 viewerID，没登录就是 0)
+	// 安全提取观看者 viewerID
+	viewerID := userutils.GetUserID(c)
+
 	writeResult(c, h.blogService.QueryBlogByUserID(c.Request.Context(), authorID, current, viewerID))
 }

@@ -28,3 +28,15 @@ func GetUser(c *gin.Context) (dto.UserDTO, error) {
 
 	return userDTO, nil
 }
+
+// GetUserID 尝试获取当前登录用户的 ID。
+//
+// 适用于“可选登录”的公开接口。如果未登录或类型解析失败，均安全地返回 0（代表游客）。
+func GetUserID(c *gin.Context) int64 {
+	// 直接复用 GetUser 的安全校验逻辑
+	user, err := GetUser(c)
+	if err != nil {
+		return 0 // 获取失败或未登录，直接降级为游客
+	}
+	return user.ID
+}

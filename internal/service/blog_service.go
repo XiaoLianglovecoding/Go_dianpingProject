@@ -26,8 +26,6 @@ type BlogService interface {
 	QueryByID(ctx context.Context, id int64, userID int64) result.Result
 	// LikeBlog 点赞或取消点赞。
 	LikeBlog(ctx context.Context, id int64, userID int64) result.Result
-	// QueryMyBlog 查询当前登录用户自己的博客。
-	QueryMyBlog(ctx context.Context, current int) result.Result
 	// QueryHotBlog 查询首页热门博客。
 	QueryHotBlog(ctx context.Context, current int, userID int64) result.Result
 	// QueryBlogLikes 查询一篇博客的点赞用户列表。
@@ -172,12 +170,6 @@ func (s *blogService) LikeBlog(ctx context.Context, blogId int64, userId int64) 
 	}
 }
 
-// QueryMyBlog 查询当前登录用户发布的博客。
-func (s *blogService) QueryMyBlog(ctx context.Context, current int) result.Result {
-	// TODO: Query current user's blogs.
-	return result.Fail("TODO: query my blog")
-}
-
 // QueryHotBlog 查询首页热门博客。
 //
 // 这一步不只是查 tb_blog：
@@ -288,7 +280,7 @@ func (s *blogService) setBlogIsLike(ctx context.Context, blog *model.Blog, userI
 
 	// 使用 ZScore 查询，如果 err == nil 说明查到了分数，代表已点赞
 	_, err := s.redisClient.ZScore(ctx, key, member).Result()
-	if err != nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		log.Printf("Redis ZScore查询 error!")
 	}
 	blog.IsLike = err == nil
