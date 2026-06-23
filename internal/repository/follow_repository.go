@@ -19,6 +19,8 @@ type FollowRepository interface {
 	DeleteFollow(ctx context.Context, userID int64, followUserID int64) error
 	// FindCommonFollows 查询共同关注。
 	FindCommonFollows(ctx context.Context, userID int64, otherUserID int64) ([]model.User, error)
+	//FollowRepository 增加查粉丝方法
+	FindFollowerIDs(ctx context.Context, followUserID int64) ([]int64, error)
 }
 
 type followRepository struct {
@@ -108,4 +110,19 @@ func (r *followRepository) FindCommonFollows(ctx context.Context, userID int64, 
 		return nil, err // 真正的数据库错误
 	}
 	return users, nil
+}
+
+// FollowRepository 查询粉丝IDS
+func (r *followRepository) FindFollowerIDs(ctx context.Context, followUserID int64) ([]int64, error) {
+	var ids []int64
+
+	err := r.db.WithContext(ctx).
+		Model(&model.Follow{}).
+		Where("follow_user_id = ?", followUserID).
+		Pluck("user_id", &ids).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return ids, nil
 }

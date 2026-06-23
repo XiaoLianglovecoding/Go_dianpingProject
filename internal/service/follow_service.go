@@ -133,27 +133,38 @@ func (s *followService) Common(ctx context.Context, currentUserID int64, otherUs
 	// 2. 查 Redis 求交集 SInter
 	currentKey := constants.FollowsKey + strconv.FormatInt(currentUserID, 10)
 	otherKey := constants.FollowsKey + strconv.FormatInt(otherUserID, 10)
-	commonIDStrs, err := s.redisClient.SInter(ctx, currentKey, otherKey).Result()
+	commonFollowsStr, err := s.redisClient.SInter(ctx, currentKey, otherKey).Result()
 	if err != nil {
 		log.Printf("[FollowService.Common] Redis SInter failed: %v", err)
-		return s.fallbackToMySQL(ctx, currentUserID, otherUserID)
-	}
-	// 3. Redis 没交集时兜底查 MySQL，避免缓存没预热导致误判。
-	if len(commonIDStrs) == 0 {
+		// Redis 挂了，为了高可用，必须降级去查 MySQL
 		return s.fallbackToMySQL(ctx, currentUserID, otherUserID)
 	}
 
+	// 3. 核心逻辑判断：如果 Redis 返回交集为空，需要区分原因
+	if len(commonFollowsStr) == 0 {
+		// 检查这两个用户的 Key 是否都在 Redis 中存在
+		// Exists 会返回存在的 Key 的数量 (0, 1, 或 2)
+		existCount, _ := s.redisClient.Exists(ctx, currentKey, otherKey).Result()
+
+		if existCount == 2 {
+			// 【场景 A】：两个人的关注列表都在缓存里，但交集为空。
+			// 结论：他们【真的】没有共同关注！直接阻断，保护数据库！
+			return result.OKWithData([]dto.UserDTO{})
+		} else {
+			// 【场景 B】：至少有一个人的关注列表不在缓存里（缓存丢失/过期）。
+			// 结论：Redis 的数据是不完整的，必须降级查 MySQL！
+			// (并且理论上查完 MySQL 后，应该顺手把数据重新回写进 Redis 补全缓存，这里为了简洁先省略)
+			return s.fallbackToMySQL(ctx, currentUserID, otherUserID)
+		}
+	}
+
 	// 4. Redis 成功命中，且有共同关注，转换类型
-	commonIDs := make([]int64, 0, len(commonIDStrs))
-	for _, idStr := range commonIDStrs {
+	commonIDs := make([]int64, 0, len(commonFollowsStr))
+	for _, idStr := range commonFollowsStr {
 		if id, parseErr := strconv.ParseInt(idStr, 10, 64); parseErr == nil {
 			commonIDs = append(commonIDs, id)
 		}
 	}
-	if len(commonIDs) == 0 {
-		return result.OKWithData([]dto.UserDTO{})
-	}
-
 	// 5. 根据 ID 批量查用户信息 (这里可以直接复用之前的批量查方法)
 	users, err := s.userRepo.FindUsersByIDs(ctx, commonIDs)
 	if err != nil {

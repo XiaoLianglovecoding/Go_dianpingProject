@@ -43,7 +43,7 @@ func main() {
 
 	// 依赖组装：Repository -> Service -> Handler -> Router。
 	repos := repository.NewRepositories(db)
-	services := service.NewServices(repos, redisClient)
+	services := service.NewServices(repos, redisClient, cfg)
 	handlers := handler.NewHandlers(services)
 	engine := router.NewRouter(handlers, redisClient)
 

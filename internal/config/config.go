@@ -14,6 +14,7 @@ type Config struct {
 	MySQL MySQLConfig `mapstructure:"mysql"`
 	// Redis 保存连接 Redis 需要的配置。
 	Redis RedisConfig `mapstructure:"redis"`
+	OSS   OSSConfig   `mapstructure:"oss"`
 }
 
 type ServerConfig struct {
@@ -36,6 +37,15 @@ type RedisConfig struct {
 	Port     int    `mapstructure:"port"`
 	Password string `mapstructure:"password"`
 	Database int    `mapstructure:"database"`
+}
+
+type OSSConfig struct {
+	Endpoint        string `mapstructure:"endpoint"`
+	Bucket          string `mapstructure:"bucket"`
+	AccessKeyID     string `mapstructure:"accessKeyId"`
+	AccessKeySecret string `mapstructure:"accessKeySecret"`
+	PublicHost      string `mapstructure:"publicHost"`
+	Dir             string `mapstructure:"dir"`
 }
 
 // Load 读取配置文件，并把 yaml 里的配置反序列化成 Config 结构体。

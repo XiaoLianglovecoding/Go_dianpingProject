@@ -46,3 +46,16 @@ func parseIntQuery(c *gin.Context, name string, defaultValue int) int {
 	}
 	return parsed
 }
+
+func parseInt64Query(c *gin.Context, name string, defaultValue int64) int64 {
+	value := c.Query(name)
+	if value == "" {
+		return defaultValue
+	}
+
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
+}

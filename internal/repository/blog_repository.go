@@ -20,6 +20,8 @@ type BlogRepository interface {
 	FindBlogsByUserID(ctx context.Context, userID int64, current int) ([]model.Blog, error)
 	// UpdateBlogLiked 修改博客点赞数，delta 可以是 +1 或 -1。
 	UpdateBlogLiked(ctx context.Context, id int64, delta int) error
+	//BlogRepository 批量查博客
+	FindBlogsByIDs(ctx context.Context, ids []int64) ([]model.Blog, error)
 }
 
 type blogRepository struct {
@@ -34,8 +36,8 @@ func NewBlogRepository(db *gorm.DB) BlogRepository {
 
 // SaveBlog 负责向 tb_blog 插入一条博客记录。
 func (r *blogRepository) SaveBlog(ctx context.Context, blog *model.Blog) error {
-	// TODO: Insert a new blog into tb_blog.
-	return nil
+	// 使用 GORM 插入新记录，GORM 会自动将生成的主键自增 ID 写回 blog.ID
+	return r.db.WithContext(ctx).Create(blog).Error
 }
 
 // FindBlogByID 负责按主键查询博客详情。
@@ -132,4 +134,21 @@ func (r *blogRepository) UpdateBlogLiked(ctx context.Context, blogId int64, delt
 		return errors.New("操作失败: 博客不存在或状态已变更")
 	}
 	return nil
+}
+
+// FindBlogsByIDs批量查博客
+func (r *blogRepository) FindBlogsByIDs(ctx context.Context, ids []int64) ([]model.Blog, error) {
+	if len(ids) == 0 {
+		return []model.Blog{}, nil
+	}
+
+	var blogs []model.Blog
+	err := r.db.WithContext(ctx).
+		Where("id IN ?", ids).
+		Find(&blogs).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return blogs, nil
 }

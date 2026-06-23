@@ -100,7 +100,7 @@ func registerBlogRoutes(r *gin.Engine, h *handler.BlogHandler) {
 	protectedGroup.Use(middleware.LoginInterceptor())
 	{
 		protectedGroup.GET("/of/me", h.QueryMyBlog)
-		protectedGroup.GET("/of/follow", todoRoute("TODO: query blog of follow"))
+		protectedGroup.GET("/of/follow", h.QueryBlogOfFollow)
 		protectedGroup.POST("", h.SaveBlog)
 		protectedGroup.PUT("/like/:id", h.LikeBlog)
 	}

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"hmdp-go/internal/config"
 	"hmdp-go/internal/repository"
 
 	"github.com/redis/go-redis/v9"
@@ -25,14 +26,14 @@ type Services struct {
 //
 // repos: 数据库访问层集合。
 // redisClient: Redis 客户端，后续做缓存、登录 token、点赞、签到时会用。
-func NewServices(repos *repository.Repositories, redisClient *redis.Client) *Services {
+func NewServices(repos *repository.Repositories, redisClient *redis.Client, cfg *config.Config) *Services {
 	return &Services{
 		User:         NewUserService(repos.User, redisClient),
 		Shop:         NewShopService(repos.Shop, redisClient),
 		ShopType:     NewShopTypeService(repos.ShopType, redisClient),
-		Blog:         NewBlogService(repos.Blog, repos.User, redisClient),
+		Blog:         NewBlogService(repos.Blog, repos.User, repos.Follow, redisClient),
 		Follow:       NewFollowService(repos.Follow, repos.User, redisClient),
-		Upload:       NewUploadService(),
+		Upload:       NewUploadService(cfg.OSS),
 		Voucher:      NewVoucherService(repos.Voucher, redisClient),
 		VoucherOrder: NewVoucherOrderService(repos.VoucherOrder, repos.Voucher, redisClient),
 	}

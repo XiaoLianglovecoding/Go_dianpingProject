@@ -29,7 +29,14 @@ func (h *BlogHandler) SaveBlog(c *gin.Context) {
 		writeResult(c, result.Fail("invalid blog request body"))
 		return
 	}
-	writeResult(c, h.blogService.SaveBlog(c.Request.Context(), blog))
+	//获取当前登录用户ID
+	userDTO, err := userutils.GetUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, result.Fail(err.Error()))
+		return
+	}
+	currentUserID := userDTO.ID
+	writeResult(c, h.blogService.SaveBlog(c.Request.Context(), blog, currentUserID))
 }
 
 // QueryByID 处理 GET /blog/:id，查询博客详情。
@@ -107,4 +114,23 @@ func (h *BlogHandler) QueryBlogByUserID(c *gin.Context) {
 	viewerID := userutils.GetUserID(c)
 
 	writeResult(c, h.blogService.QueryBlogByUserID(c.Request.Context(), authorID, current, viewerID))
+}
+
+// Handler 增加查询关注流
+func (h *BlogHandler) QueryBlogOfFollow(c *gin.Context) {
+	lastID := parseInt64Query(c, "lastId", 0)
+	offset := parseIntQuery(c, "offset", 0)
+
+	userDTO, err := userutils.GetUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, result.Fail(err.Error()))
+		return
+	}
+
+	writeResult(c, h.blogService.QueryBlogOfFollow(
+		c.Request.Context(),
+		lastID,
+		offset,
+		userDTO.ID,
+	))
 }

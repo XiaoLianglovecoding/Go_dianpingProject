@@ -13,3 +13,10 @@ redis:
   port: 6379
   password: 123456
   database: 1
+oss:
+  endpoint: oss-cn-beijing.aliyuncs.com
+  bucket: lyl-java-ai-01
+  accessKeyId: "your-access-key-id"
+  accessKeySecret: "your-access-key-secret"
+  publicHost: https://lyl-java-ai-01.oss-cn-beijing.aliyuncs.com
+  dir: blogs

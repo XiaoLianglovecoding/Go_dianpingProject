@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"time"
@@ -21,7 +22,7 @@ import (
 // BlogService 定义“博客/探店笔记”相关业务能力。
 type BlogService interface {
 	// SaveBlog 发布博客。
-	SaveBlog(ctx context.Context, blog model.Blog) result.Result
+	SaveBlog(ctx context.Context, blog model.Blog, currentUserID int64) result.Result
 	// QueryByID 查询博客详情。
 	QueryByID(ctx context.Context, id int64, userID int64) result.Result
 	// LikeBlog 点赞或取消点赞。
@@ -32,20 +33,23 @@ type BlogService interface {
 	QueryBlogLikes(ctx context.Context, id int64) result.Result
 	// QueryBlogByUserID 查询指定用户发布的博客。
 	QueryBlogByUserID(ctx context.Context, authorID int64, current int, viewerID int64) result.Result
+	//增加查询关注流
+	QueryBlogOfFollow(ctx context.Context, max int64, offset int, currentUserID int64) result.Result
 }
 
 type blogService struct {
 	// blogRepo 负责 tb_blog 的数据库操作。
 	blogRepo repository.BlogRepository
 	// userRepo 用来查作者昵称、头像。
-	userRepo repository.UserRepository
+	userRepo   repository.UserRepository
+	followRepo repository.FollowRepository
 	// redisClient 后续点赞、Feed 流会用 Redis。
 	redisClient *redis.Client
 }
 
 // NewBlogService 创建博客 Service。
-func NewBlogService(blogRepo repository.BlogRepository, userRepo repository.UserRepository, redisClient *redis.Client) BlogService {
-	return &blogService{blogRepo: blogRepo, userRepo: userRepo, redisClient: redisClient}
+func NewBlogService(blogRepo repository.BlogRepository, userRepo repository.UserRepository, followRepo repository.FollowRepository, redisClient *redis.Client) BlogService {
+	return &blogService{blogRepo: blogRepo, userRepo: userRepo, followRepo: followRepo, redisClient: redisClient}
 }
 
 // SaveBlog 发布博客。
@@ -54,9 +58,43 @@ func NewBlogService(blogRepo repository.BlogRepository, userRepo repository.User
 // 1. 从登录上下文拿当前用户 id；
 // 2. 保存博客到 tb_blog；
 // 3. 把博客推送到粉丝的 Feed 流。
-func (s *blogService) SaveBlog(ctx context.Context, blog model.Blog) result.Result {
-	// TODO: Get current user id from context, save blog, and push feed to followers.
-	return result.Fail("TODO: save blog")
+func (s *blogService) SaveBlog(ctx context.Context, blog model.Blog, currentUserID int64) result.Result {
+	// 1. 补全博客信息
+	blog.UserID = currentUserID
+
+	// 2. 保存博客到 MySQL 数据库
+	if err := s.blogRepo.SaveBlog(ctx, &blog); err != nil {
+		log.Printf("保存博客失败: %v", err)
+		return result.Fail("发布博客失败")
+	}
+	// 注意：此时通过 GORM 的特性，blog.ID 已经被自动赋上了数据库生成的自增 ID
+	// 3. 查询当前用户的所有粉丝 ID 列表
+	// 假设你的 followRepo 提供了批量查粉丝 ID 的方法，返回 []int64
+	followerIDs, err := s.followRepo.FindFollowerIDs(ctx, currentUserID)
+	if err != nil {
+		log.Printf("获取粉丝列表失败: %v", err)
+		// 核心数据已落盘，为了用户体验，学习阶段可以打印日志并继续放行，或者提示成功
+		return result.OKWithData(blog.ID)
+	}
+	if len(followerIDs) == 0 {
+		return result.OKWithData(blog.ID)
+	}
+
+	now := time.Now().UnixMilli()
+	blogIDStr := strconv.FormatInt(blog.ID, 10)
+	pipe := s.redisClient.Pipeline()
+	for _, followerID := range followerIDs {
+		key := constants.FeedKey + strconv.FormatInt(followerID, 10)
+		pipe.ZAdd(ctx, key, redis.Z{
+			Score:  float64(now),
+			Member: blogIDStr,
+		})
+	}
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		log.Printf("推送 Feed 失败: %v", err)
+	}
+	return result.OKWithData(blog.ID)
 }
 
 // QueryByID 查询博客详情。
@@ -284,4 +322,93 @@ func (s *blogService) setBlogIsLike(ctx context.Context, blog *model.Blog, userI
 		log.Printf("Redis ZScore查询 error!")
 	}
 	blog.IsLike = err == nil
+}
+
+func (s *blogService) QueryBlogOfFollow(ctx context.Context, max int64, offset int, currentUserID int64) result.Result {
+	if currentUserID <= 0 {
+		return result.Fail("用户未登录")
+	}
+	if max <= 0 {
+		max = time.Now().UnixMilli()
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	key := constants.FeedKey + strconv.FormatInt(currentUserID, 10)
+
+	zs, err := s.redisClient.ZRevRangeByScoreWithScores(ctx, key, &redis.ZRangeBy{
+		Max:    strconv.FormatInt(max, 10),
+		Min:    "0",
+		Offset: int64(offset),
+		Count:  2,
+	}).Result()
+	if err != nil {
+		return result.Fail("查询关注流失败")
+	}
+
+	if len(zs) == 0 {
+		return result.OKWithData(dto.ScrollResult{
+			List:    []model.Blog{},
+			MinTime: 0,
+			Offset:  0,
+		})
+	}
+
+	ids := make([]int64, 0, len(zs))
+	minTime := int64(0)
+	nextOffset := 0
+
+	for _, z := range zs {
+		score := int64(z.Score)
+
+		if score == minTime {
+			nextOffset++
+		} else {
+			minTime = score
+			nextOffset = 1
+		}
+
+		idStr := fmt.Sprint(z.Member)
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			log.Printf("Feed 中存在非法 blogId: %v", z.Member)
+			continue
+		}
+		ids = append(ids, id)
+	}
+
+	blogs, err := s.blogRepo.FindBlogsByIDs(ctx, ids)
+	if err != nil {
+		return result.Fail("查询博客失败")
+	}
+
+	blogMap := make(map[int64]model.Blog, len(blogs))
+	for _, blog := range blogs {
+		blogMap[blog.ID] = blog
+	}
+
+	orderedBlogs := make([]model.Blog, 0, len(ids))
+	for _, id := range ids {
+		blog, ok := blogMap[id]
+		if !ok {
+			continue
+		}
+		orderedBlogs = append(orderedBlogs, blog)
+	}
+
+	for i := range orderedBlogs {
+		user, err := s.userRepo.FindUserByID(ctx, orderedBlogs[i].UserID)
+		if err == nil {
+			orderedBlogs[i].Name = user.NickName
+			orderedBlogs[i].Icon = user.Icon
+		}
+		s.setBlogIsLike(ctx, &orderedBlogs[i], currentUserID)
+	}
+
+	return result.OKWithData(dto.ScrollResult{
+		List:    orderedBlogs,
+		MinTime: minTime,
+		Offset:  nextOffset,
+	})
 }
