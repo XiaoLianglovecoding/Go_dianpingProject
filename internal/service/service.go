@@ -31,7 +31,7 @@ func NewServices(repos *repository.Repositories, redisClient *redis.Client) *Ser
 		Shop:         NewShopService(repos.Shop, redisClient),
 		ShopType:     NewShopTypeService(repos.ShopType, redisClient),
 		Blog:         NewBlogService(repos.Blog, repos.User, redisClient),
-		Follow:       NewFollowService(repos.Follow, redisClient),
+		Follow:       NewFollowService(repos.Follow, repos.User, redisClient),
 		Upload:       NewUploadService(),
 		Voucher:      NewVoucherService(repos.Voucher, redisClient),
 		VoucherOrder: NewVoucherOrderService(repos.VoucherOrder, repos.Voucher, redisClient),

@@ -17,6 +17,7 @@ type UserRepository interface {
 	FindUserInfoByID(ctx context.Context, id int64) (*model.UserInfo, error)
 	// CreateUser 创建新用户。
 	CreateUser(ctx context.Context, user *model.User) error
+	FindUsersByIDs(ctx context.Context, ids []int64) ([]model.User, error)
 }
 
 type userRepository struct {
@@ -90,4 +91,20 @@ func (r *userRepository) CreateUser(ctx context.Context, user *model.User) error
 		return err
 	}
 	return nil
+}
+
+//	新增：FindUsersByIDs 批量查询用户列表
+//
+// 相当于 SQL: SELECT * FROM tb_user WHERE id IN (?, ?, ?);
+func (r *userRepository) FindUsersByIDs(ctx context.Context, ids []int64) ([]model.User, error) {
+	if len(ids) == 0 {
+		return []model.User{}, nil
+	}
+	var users []model.User
+	// GORM 的精髓：传一个切片给 ?，它会自动帮你转换成 IN () 的语法
+	err := r.db.WithContext(ctx).Where("id IN ?", ids).Find(&users).Error
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }

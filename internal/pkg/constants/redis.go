@@ -17,6 +17,8 @@ const (
 	FeedKey         = "feed:"
 	ShopGeoKey      = "shop:geo:"
 	UserSignKey     = "sign:"
+
+	FollowsKey = "follows:"
 )
 
 // Redis 过期时间统一放在这里。

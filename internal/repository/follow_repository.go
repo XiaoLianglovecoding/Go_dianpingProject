@@ -91,6 +91,21 @@ func (r *followRepository) DeleteFollow(ctx context.Context, userID int64, follo
 
 // FindCommonFollows 查询两个用户都关注的人。
 func (r *followRepository) FindCommonFollows(ctx context.Context, userID int64, otherUserID int64) ([]model.User, error) {
-	// TODO: Query common follow users, or use Redis set intersection later.
-	return nil, nil
+	var users []model.User
+
+	// 相当于执行以下 SQL 语句（求两个用户共同关注的交集）：
+	// SELECT DISTINCT u.* // FROM tb_user AS u
+	// JOIN tb_follow AS f1 ON f1.follow_user_id = u.id AND f1.user_id = ?
+	// JOIN tb_follow AS f2 ON f2.follow_user_id = u.id AND f2.user_id = ?
+	err := r.db.WithContext(ctx).
+		Table("tb_user AS u").
+		Select("DISTINCT u.*").
+		Joins("JOIN tb_follow AS f1 ON f1.follow_user_id = u.id AND f1.user_id = ?", userID).
+		Joins("JOIN tb_follow AS f2 ON f2.follow_user_id = u.id AND f2.user_id = ?", otherUserID).
+		Scan(&users).Error
+
+	if err != nil {
+		return nil, err // 真正的数据库错误
+	}
+	return users, nil
 }

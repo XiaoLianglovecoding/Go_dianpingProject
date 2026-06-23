@@ -59,14 +59,21 @@ func (h *FollowHandler) Follow(c *gin.Context) {
 		return
 	}
 	currentUserID := userDTO.ID
-	writeResult(c, h.followService.Follow(c.Request.Context(), currentUserID, isFollow, targetUserID))
+	writeResult(c, h.followService.Follow(c.Request.Context(), currentUserID, targetUserID, isFollow))
 }
 
 // Common 处理 GET /follow/common/:id，查询共同关注。
 func (h *FollowHandler) Common(c *gin.Context) {
-	id, ok := parseInt64Param(c, "id")
+	otherUserID, ok := parseInt64Param(c, "id")
 	if !ok {
 		return
 	}
-	writeResult(c, h.followService.Common(c.Request.Context(), id))
+	//获取当前登录用户ID
+	userDTO, err := userutils.GetUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, result.Fail(err.Error()))
+		return
+	}
+	currentUserID := userDTO.ID
+	writeResult(c, h.followService.Common(c.Request.Context(), currentUserID, otherUserID))
 }
