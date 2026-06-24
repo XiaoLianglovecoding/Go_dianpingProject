@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"hmdp-go/internal/model"
 
@@ -97,6 +98,12 @@ func (r *shopRepository) SaveShop(ctx context.Context, shop *model.Shop) error {
 
 // UpdateShop 后面更新店铺后，还需要删除 Redis 里的旧缓存。
 func (r *shopRepository) UpdateShop(ctx context.Context, shop *model.Shop) error {
-	// TODO: Update tb_shop and later evict cache:shop:{id}.
-	return nil
+	if shop == nil || shop.ID <= 0 {
+		return errors.New("invalid shop")
+	}
+
+	return r.db.WithContext(ctx).
+		Model(&model.Shop{}).
+		Where("id = ?", shop.ID).
+		Updates(shop).Error
 }
