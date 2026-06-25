@@ -31,9 +31,9 @@ type UserService interface {
 	// QueryUserInfo 查询用户扩展资料。
 	QueryUserInfo(ctx context.Context, id int64) result.Result
 	// Sign 今日签到。
-	Sign(ctx context.Context) result.Result
+	Sign(ctx context.Context, userID int64) result.Result
 	// SignCount 查询连续签到天数。
-	SignCount(ctx context.Context) result.Result
+	SignCount(ctx context.Context, userID int64) result.Result
 }
 
 type userService struct {
@@ -221,14 +221,71 @@ func (s *userService) QueryUserInfo(ctx context.Context, id int64) result.Result
 
 // Sign 今日签到。
 //
-// Java 版使用 Redis Bitmap：sign:{userId}:yyyyMM 的第 day-1 位设置为 1。
-func (s *userService) Sign(ctx context.Context) result.Result {
-	// TODO: Write today's sign bit with SETBIT sign:{userId}:yyyyMM.
-	return result.Fail("TODO: user sign")
+// Redis 里每个月一个 key：
+//
+//	sign:{userId}:yyyyMM
+//
+// 例如 2026 年 6 月 25 日签到：
+//
+//	SETBIT sign:5:202606 24 1
+//
+// 这里 day-1 是因为 Redis 的位下标从 0 开始，而日期从 1 开始。
+func (s *userService) Sign(ctx context.Context, userID int64) result.Result {
+	if userID <= 0 {
+		return result.Fail("user not login")
+	}
+
+	now := time.Now()
+	key := fmt.Sprintf("%s%d:%s", constants.UserSignKey, userID, now.Format("200601"))
+	offset := now.Day() - 1
+
+	if err := s.redisClient.SetBit(ctx, key, int64(offset), 1).Err(); err != nil {
+		log.Printf("[UserService.Sign] setbit failed, key=%s, err=%v", key, err)
+		return result.Fail("sign failed")
+	}
+
+	return result.OK()
 }
 
 // SignCount 查询连续签到天数。
-func (s *userService) SignCount(ctx context.Context) result.Result {
-	// TODO: Count continuous sign days with Redis BITFIELD.
-	return result.Fail("TODO: user sign count")
+//
+// 统计逻辑：
+// 1. 先用 BITFIELD 取出本月从 1 号到今天的所有签到位；
+// 2. 再从最低位开始，连续判断 1 的个数；
+// 3. 遇到 0 就停止。
+func (s *userService) SignCount(ctx context.Context, userID int64) result.Result {
+	if userID <= 0 {
+		return result.Fail("user not login")
+	}
+
+	now := time.Now()
+	key := fmt.Sprintf("%s%d:%s", constants.UserSignKey, userID, now.Format("200601"))
+	day := now.Day()
+
+	// BITFIELD key GET u{day} 0
+	// day 最大也就是 31，所以这里用无符号整数就够了。
+	res, err := s.redisClient.BitField(ctx, key, "get", fmt.Sprintf("u%d", day), 0).Result()
+	if err != nil {
+		log.Printf("[UserService.SignCount] bitfield failed, key=%s, err=%v", key, err)
+		return result.Fail("query sign count failed")
+	}
+	if len(res) == 0 || res[0] == 0 {
+		return result.OKWithData(0)
+	}
+
+	num := res[0]
+	count := 0
+
+	// 从最低位开始依次判断：
+	// 如果最低位是 1，说明今天/前一天签到了；
+	// 如果最低位是 0，说明连续签到在这里断掉了。
+	for i := 0; i < day; i++ {
+		if num&1 == 0 {
+			break
+		}
+		count++
+		num >>= 1
+	}
+
+	return result.OKWithData(count)
 }

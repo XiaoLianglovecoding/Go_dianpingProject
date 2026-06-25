@@ -82,10 +82,20 @@ func (h *UserHandler) QueryUserInfo(c *gin.Context) {
 
 // Sign 处理 POST /user/sign。
 func (h *UserHandler) Sign(c *gin.Context) {
-	writeResult(c, h.userService.Sign(c.Request.Context()))
+	userDTO, err := userutils.GetUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, result.Fail(err.Error()))
+		return
+	}
+	writeResult(c, h.userService.Sign(c.Request.Context(), userDTO.ID))
 }
 
 // SignCount 处理 GET /user/sign/count。
 func (h *UserHandler) SignCount(c *gin.Context) {
-	writeResult(c, h.userService.SignCount(c.Request.Context()))
+	userDTO, err := userutils.GetUser(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, result.Fail(err.Error()))
+		return
+	}
+	writeResult(c, h.userService.SignCount(c.Request.Context(), userDTO.ID))
 }
