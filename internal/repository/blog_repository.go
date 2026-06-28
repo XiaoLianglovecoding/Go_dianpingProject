@@ -22,6 +22,9 @@ type BlogRepository interface {
 	UpdateBlogLiked(ctx context.Context, id int64, delta int) error
 	//BlogRepository 批量查博客
 	FindBlogsByIDs(ctx context.Context, ids []int64) ([]model.Blog, error)
+
+	// DeleteBlog 删除指定 id 的博客
+	DeleteBlog(ctx context.Context, id int64) error
 }
 
 type blogRepository struct {
@@ -151,4 +154,13 @@ func (r *blogRepository) FindBlogsByIDs(ctx context.Context, ids []int64) ([]mod
 		return nil, err
 	}
 	return blogs, nil
+}
+
+// 2. 在文件末尾添加具体实现:
+// DeleteBlog 负责从 tb_blog 中删除记录
+func (r *blogRepository) DeleteBlog(ctx context.Context, id int64) error {
+	// 使用 GORM 的按主键删除
+	// 注意：如果你的 model.Blog 结构体包含了 gorm.DeletedAt 字段，这里会自动变成软删除（逻辑删除）
+	// 如果没有定义 DeletedAt，则是物理删除
+	return r.db.WithContext(ctx).Delete(&model.Blog{}, id).Error
 }

@@ -35,6 +35,9 @@ type BlogService interface {
 	QueryBlogByUserID(ctx context.Context, authorID int64, current int, viewerID int64) result.Result
 	//增加查询关注流
 	QueryBlogOfFollow(ctx context.Context, max int64, offset int, currentUserID int64) result.Result
+
+	// DeleteBlog 删除博客
+	DeleteBlog(ctx context.Context, blogID int64, userID int64) result.Result
 }
 
 type blogService struct {
@@ -411,4 +414,40 @@ func (s *blogService) QueryBlogOfFollow(ctx context.Context, max int64, offset i
 		MinTime: minTime,
 		Offset:  nextOffset,
 	})
+}
+
+// 2. 在文件末尾添加具体实现:
+// DeleteBlog 删除博客核心业务逻辑
+func (s *blogService) DeleteBlog(ctx context.Context, blogID int64, userID int64) result.Result {
+	if blogID <= 0 {
+		return result.Fail("无效的博客ID")
+	}
+
+	// 1. 先查询博客是否存在
+	blog, err := s.blogRepo.FindBlogByID(ctx, blogID)
+	if err != nil {
+		return result.Fail("博客不存在或已被删除")
+	}
+
+	// 2. 【安全校验】判断当前登录用户是否是该博客的作者
+	if blog.UserID != userID {
+		log.Printf("越权删除拦截: 用户 %d 尝试删除用户 %d 的博客 %d", userID, blog.UserID, blogID)
+		return result.Fail("无权删除他人的笔记")
+	}
+
+	// 3. 从 MySQL 中删除博客记录
+	err = s.blogRepo.DeleteBlog(ctx, blogID)
+	if err != nil {
+		log.Printf("删除博客失败: %v", err)
+		return result.Fail("删除笔记失败，请稍后重试")
+	}
+
+	// 4. 清理 Redis 中的这篇博客的点赞用户 ZSet 缓存
+	key := constants.BlogLikedKey + strconv.FormatInt(blogID, 10)
+	s.redisClient.Del(ctx, key)
+
+	// 说明：如果你的项目做了完整的“推模式”Feed流，这里在严格意义上还需要去所有粉丝的收件箱中删掉这个 blogId。
+	// 但这通常是一个耗时的异步扇出操作，对于学习项目，通常留给前端懒加载过滤或暂不处理。
+
+	return result.OKWithData("删除成功")
 }

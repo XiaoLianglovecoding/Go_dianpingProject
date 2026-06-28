@@ -1,0 +1,23 @@
+server:
+  port: 8081
+
+mysql:
+  host: 127.0.0.1
+  port: 3306
+  database: hm-dianping
+  username: root
+  password: your_mysql_password_here # <-- 换成假数据
+
+redis:
+  host: 127.0.0.1
+  port: 6379
+  password: your_redis_password_here # <-- 换成假数据
+  database: 1
+
+oss:
+  endpoint: oss-cn-beijing.aliyuncs.com
+  bucket: your-bucket-name
+  accessKeyId: your_access_key_id_here         # <-- 换成假数据
+  accessKeySecret: your_access_key_secret_here # <-- 换成假数据
+  publicHost: https://your-bucket-name.oss-cn-beijing.aliyuncs.com
+  dir: blogs

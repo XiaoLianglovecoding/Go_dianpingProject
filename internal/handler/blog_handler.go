@@ -134,3 +134,23 @@ func (h *BlogHandler) QueryBlogOfFollow(c *gin.Context) {
 		userDTO.ID,
 	))
 }
+
+// DeleteBlog 处理 DELETE /blog/:id 请求，删除指定博客
+func (h *BlogHandler) DeleteBlog(c *gin.Context) {
+	// 1. 从 URL 路径参数中获取博客 ID
+	id, ok := parseInt64Param(c, "id")
+	if !ok {
+		return
+	}
+
+	// 2. 强登录接口校验：提取当前登录用户
+	userDTO, err := userutils.GetUser(c)
+	if err != nil {
+		// 如果没登录或者 Token 过期，打回 401
+		c.JSON(http.StatusUnauthorized, result.Fail(err.Error()))
+		return
+	}
+
+	// 3. 传递给 Service 执行业务逻辑
+	writeResult(c, h.blogService.DeleteBlog(c.Request.Context(), id, userDTO.ID))
+}

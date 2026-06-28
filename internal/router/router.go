@@ -103,6 +103,7 @@ func registerBlogRoutes(r *gin.Engine, h *handler.BlogHandler) {
 		protectedGroup.GET("/of/follow", h.QueryBlogOfFollow)
 		protectedGroup.POST("", h.SaveBlog)
 		protectedGroup.PUT("/like/:id", h.LikeBlog)
+		protectedGroup.DELETE("/:id", h.DeleteBlog)
 	}
 }
 

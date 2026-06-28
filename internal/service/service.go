@@ -35,6 +35,6 @@ func NewServices(repos *repository.Repositories, redisClient *redis.Client, cfg 
 		Follow:       NewFollowService(repos.Follow, repos.User, redisClient),
 		Upload:       NewUploadService(cfg.OSS),
 		Voucher:      NewVoucherService(repos.Voucher, redisClient),
-		VoucherOrder: NewVoucherOrderService(repos.VoucherOrder, repos.Voucher, redisClient),
+		VoucherOrder: NewVoucherOrderService(repos.VoucherOrder, redisClient),
 	}
 }

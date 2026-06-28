@@ -12,13 +12,26 @@ const (
 	CacheShopTypeKey = "cache:shopType"
 	LockShopKey      = "lock:shop:"
 
-	SeckillStockKey = "seckill:stock:"
-	BlogLikedKey    = "blog:liked:"
-	FeedKey         = "feed:"
-	ShopGeoKey      = "shop:geo:"
-	UserSignKey     = "sign:"
+	SeckillStockKey  = "seckill:stock:"
+	SeckillOrdersKey = "seckill:orders:"
+	SeckillStreamKey = "stream.orders"
+
+	SeckillConsumerGroup = "g1"
+	SeckillConsumerName  = "c1"
+
+	BlogLikedKey = "blog:liked:"
+	FeedKey      = "feed:"
+	ShopGeoKey   = "shop:geo:"
+	UserSignKey  = "sign:"
 
 	FollowsKey = "follows:"
+
+	// 死信队列
+	SeckillDLQStreamKey = "stream.orders.dlq"
+	//记录某条消息失败次数
+	SeckillRetryKey = "seckill:order:retry:"
+	//最大重试 3 次
+	SeckillMaxRetry = 3
 )
 
 // Redis 过期时间统一放在这里。
